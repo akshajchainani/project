@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hash Symbol Removal Test</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1A1A1A 0%, #2D2D2D 50%, #1A1A1A 100%);
+            color: #FFFFFF;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 30px;
+        }
+        .message-content {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #FFFFFF;
+            padding: 20px;
+            border-radius: 16px;
+            line-height: 1.6;
+            margin: 20px 0;
+        }
+        .message-content strong {
+            color: #FFD700;
+            font-weight: 700;
+        }
+        .message-content em {
+            color: #87CEEB;
+            font-style: italic;
+        }
+        h1 {
+            text-align: center;
+            color: #E60012;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Hash Symbol Removal Test</h1>
+        
+        <div class="test-section">
+            <h3>Before Processing (with # symbols):</h3>
+            <div class="message-content">
+                # Executive Summary<br>
+                ## Risk Assessment<br>
+                Your risk score is #8.5/10<br>
+                # Key Findings:<br>
+                - High risk category #<br>
+                - Emergency fund: $#20,000<br>
+                - Debt ratio: #45%<br>
+                # Recommendations #<br>
+                This is a test message with # symbols scattered throughout.
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>After Processing (hash symbols removed):</h3>
+            <div class="message-content" id="processed-content">
+                <!-- This will be populated by JavaScript -->
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>Test with Bold Formatting:</h3>
+            <div class="message-content" id="bold-content">
+                <!-- This will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function processMessage(message) {
+            let formattedMessage = message
+                .replace(/\\n/g, '<br>')
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                .replace(/^#+\s*/gm, '') // Remove markdown headers (# ## ### etc.)
+                .replace(/\s+#\s+/g, ' ') // Remove standalone # symbols
+                .replace(/^#/gm, '') // Remove # at the beginning of lines
+                .replace(/#$/gm, ''); // Remove # at the end of lines
+            
+            return formattedMessage;
+        }
+
+        // Test 1: Basic hash removal
+        const originalText = `# Executive Summary
+## Risk Assessment
+Your risk score is #8.5/10
+# Key Findings:
+- High risk category #
+- Emergency fund: $#20,000
+- Debt ratio: #45%
+# Recommendations #
+This is a test message with # symbols scattered throughout.`;
+
+        document.getElementById('processed-content').innerHTML = processMessage(originalText);
+
+        // Test 2: With bold formatting
+        const boldText = `# **Executive Summary**
+## **Risk Assessment**
+Your **risk score** is #**8.5/10**
+# **Key Findings**:
+- **High risk** category #
+- **Emergency fund**: $#**20,000**
+- **Debt ratio**: #**45%**
+# **Recommendations** #
+This is a test message with # symbols and **bold formatting**.`;
+
+        document.getElementById('bold-content').innerHTML = processMessage(boldText);
+    </script>
+</body>
+</html>
