@@ -5,7 +5,6 @@ import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from datetime import datetime
-from knowledge_base import kb
 
 # Load environment variables from .env file
 load_dotenv()
@@ -16,7 +15,7 @@ app = Flask(__name__)
 client = AI21Client(api_key=os.getenv("AI21_API_KEY"))
 
 # Initialize MongoDB
-mongo_client = MongoClient(os.getenv("MONGODB_URI"))
+mongo_client = MongoClient(os.getenv("MONGODB_URL"))
 db = mongo_client[os.getenv("DB_NAME")]
 assessments_collection = db.assessments
 users_collection = db.users
@@ -171,8 +170,6 @@ HTML_TEMPLATE = """
         .message-content { max-width:70%; padding:16px 20px; border-radius:16px; font-size:0.95rem; line-height:1.5;}
         .user-message .message-content { background: var(--accent-blue); color:white;}
         .bot-message .message-content { background: var(--glass-bg); backdrop-filter: blur(10px); border:1px solid var(--glass-border); color: var(--text-light);}
-        .bot-message .message-content strong { color: #FFD700; font-weight: 700; }
-        .bot-message .message-content em { color: #87CEEB; font-style: italic; }
         .chat-input-container { padding:20px 30px; background: rgba(0,0,0,0.3); }
         .chat-input { display: flex; gap:12px; align-items:center;}
         .chat-input input {
@@ -527,22 +524,11 @@ HTML_TEMPLATE = """
             const chat = document.getElementById('chat-messages');
             const messageDiv = document.createElement('div');
             messageDiv.className = 'chat-message bot-message';
-            
-            // Convert markdown-style bold (**text**) to HTML bold tags
-            let formattedMessage = message
-                .replace(/\\n/g, '<br>')
-                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-                .replace(/^#+\s*/gm, '') // Remove markdown headers (# ## ### etc.)
-                .replace(/\s+#\s+/g, ' ') // Remove standalone # symbols
-                .replace(/^#/gm, '') // Remove # at the beginning of lines
-                .replace(/#$/gm, ''); // Remove # at the end of lines
-            
             messageDiv.innerHTML = `
                 <div class="message-avatar bot-avatar">
                     <i class="fas fa-robot"></i>
                 </div>
-                <div class="message-content">${formattedMessage}</div>
+                <div class="message-content">${message.replace(/\\n/g, '<br>')}</div>
             `;
             chat.appendChild(messageDiv);
             chat.scrollTop = chat.scrollHeight;
@@ -659,89 +645,69 @@ def analyze():
         if domain == 'finance':
             risk_score = calculate_financial_risk_score(personal_data)
             risk_category = "High Risk" if risk_score > 7 else "Moderate Risk" if risk_score > 4 else "Low Risk"
-            
-            # RAG: Retrieve relevant financial documents
-            user_data_text = "\n".join([f"{k.replace('_', ' ').title()}: {v}" for k, v in personal_data.items() if v])
-            relevant_docs = kb.retrieve_relevant_documents(user_data_text, "finance", top_k=3)
-            knowledge_context = kb.format_documents_for_prompt(relevant_docs)
-            
             system_prompt = f"""You are an elite financial risk assessment expert working for MUFG's GenAI division.
-
-{knowledge_context}
 
 Analyze the following personal financial data and provide a comprehensive "Risk Mirror" report that includes:
 
-🎯 **EXECUTIVE SUMMARY**
-- **Overall Financial Risk Score**: **{risk_score:.1f}/10** (calculated)
-- **Risk Category**: **{risk_category}**
-- **Key Financial Health Assessment**:
+🎯 EXECUTIVE SUMMARY
+- Overall Financial Risk Score: {risk_score:.1f}/10 (calculated)
+- Risk Category: {risk_category}
+- Key Financial Health Assessment
 
-📊 **COMPREHENSIVE FINANCIAL ANALYSIS**
-1. **Liquidity Risk** - Emergency fund adequacy and cash flow stability
-2. **Debt Risk** - Debt-to-income ratios and repayment capacity
-3. **Investment Risk** - Portfolio diversification and risk tolerance alignment
-4. **Income Risk** - Income stability and growth potential
-5. **Retirement Risk** - Long-term financial security assessment
+📊 COMPREHENSIVE FINANCIAL ANALYSIS
+1. Liquidity Risk - Emergency fund adequacy and cash flow stability
+2. Debt Risk - Debt-to-income ratios and repayment capacity
+3. Investment Risk - Portfolio diversification and risk tolerance alignment
+4. Income Risk - Income stability and growth potential
+5. Retirement Risk - Long-term financial security assessment
 
-💡 **PERSONALIZED FINANCIAL RECOMMENDATIONS**
+💡 PERSONALIZED FINANCIAL RECOMMENDATIONS
 - Immediate action items for risk mitigation
 - Investment strategy optimization
 - Debt management strategies
 - Emergency fund planning
 - Retirement planning adjustments
 
-📈 **MUFG WEALTH INSIGHTS**
+📈 MUFG WEALTH INSIGHTS
 - Risk-adjusted portfolio recommendations
 - Tax-efficient investment strategies
 - Long-term wealth building opportunities
 - Financial technology integration suggestions
 
-**FORMATTING INSTRUCTIONS**: Use **bold text** (**text**) for important numbers, risk scores, categories, and key terms. Make section headers bold. Use *italics* (*text*) for emphasis on important points. Do NOT use # symbols or markdown headers in your response.
-
-IMPORTANT: Base your analysis and recommendations on the verified guidelines provided above. Use specific numbers and actionable recommendations based on these standards."""
+Present this as a professional, comprehensive financial analysis leveraging MUFG's expertise in wealth management and risk assessment. Be specific with numbers and actionable recommendations."""
         else:
             risk_score = calculate_health_risk_score(personal_data)
             risk_category = "High Risk" if risk_score > 7 else "Moderate Risk" if risk_score > 4 else "Low Risk"
-            
-            # RAG: Retrieve relevant health documents
-            user_data_text = "\n".join([f"{k.replace('_', ' ').title()}: {v}" for k, v in personal_data.items() if v])
-            relevant_docs = kb.retrieve_relevant_documents(user_data_text, "health", top_k=3)
-            knowledge_context = kb.format_documents_for_prompt(relevant_docs)
-            
             system_prompt = f"""You are an elite health risk assessment expert working for MUFG's GenAI wellness division.
-
-{knowledge_context}
 
 Analyze the following personal health data and provide a comprehensive "Risk Mirror" report that includes:
 
-🎯 **EXECUTIVE SUMMARY**
-- **Overall Health Risk Score**: **{risk_score:.1f}/10** (calculated)
-- **Risk Category**: **{risk_category}**
-- **Key Health Assessment Summary**:
+🎯 EXECUTIVE SUMMARY
+- Overall Health Risk Score: {risk_score:.1f}/10 (calculated)
+- Risk Category: {risk_category}
+- Key Health Assessment Summary
 
-📊 **COMPREHENSIVE HEALTH ANALYSIS**
-1. **Cardiovascular Risk** - Heart health and circulation assessment
-2. **Metabolic Risk** - BMI, diabetes, and metabolic syndrome indicators
-3. **Lifestyle Risk** - Exercise, sleep, and stress factor analysis
-4. **Behavioral Risk** - Smoking, alcohol, and dietary habit evaluation
-5. **Genetic Risk** - Family history and hereditary factor assessment
+📊 COMPREHENSIVE HEALTH ANALYSIS
+1. Cardiovascular Risk - Heart health and circulation assessment
+2. Metabolic Risk - BMI, diabetes, and metabolic syndrome indicators
+3. Lifestyle Risk - Exercise, sleep, and stress factor analysis
+4. Behavioral Risk - Smoking, alcohol, and dietary habit evaluation
+5. Genetic Risk - Family history and hereditary factor assessment
 
-💡 **PERSONALIZED HEALTH RECOMMENDATIONS**
+💡 PERSONALIZED HEALTH RECOMMENDATIONS
 - Immediate lifestyle modifications
 - Exercise and nutrition optimization plans
 - Preventive care and screening schedules
 - Stress management strategies
 - Sleep hygiene improvements
 
-📈 **MUFG WELLNESS INSIGHTS**
+📈 MUFG WELLNESS INSIGHTS
 - Evidence-based health optimization strategies
 - Technology-assisted health monitoring recommendations
 - Long-term wellness investment planning
 - Corporate wellness program integration
 
-**FORMATTING INSTRUCTIONS**: Use **bold text** (**text**) for important numbers, risk scores, categories, and key terms. Make section headers bold. Use *italics* (*text*) for emphasis on important points. Highlight specific health metrics, risk factors, and recommendations in bold. Do NOT use # symbols or markdown headers in your response.
-
-IMPORTANT: Base your analysis and recommendations on the verified guidelines provided above. Use specific, actionable health recommendations based on these standards."""
+Present this as a professional, comprehensive health analysis leveraging MUFG's commitment to employee and client wellness. Include specific, actionable health recommendations."""
         chat_context['domain'] = domain
         chat_context['personal_data'] = personal_data
         chat_context['messages'] = []
@@ -788,33 +754,7 @@ IMPORTANT: Base your analysis and recommendations on the verified guidelines pro
 def chat():
     try:
         user_message = request.json['message']
-        print(f"Chat request received: {user_message}")
-        
-        # Check if chat context is properly initialized
-        if not chat_context.get('messages'):
-            print("Warning: Chat context not initialized, creating new context")
-            chat_context['messages'] = []
-            chat_context['domain'] = 'finance'  # default domain
-            
-            # Add a system message to initialize the conversation
-            system_message = """You are an AI risk assessment consultant. You help users understand their financial and health risk analysis. 
-            Provide helpful, accurate responses based on the context provided. Use **bold text** for important information. Do NOT use # symbols or markdown headers in your responses."""
-            chat_context['messages'].append(ChatMessage(role="system", content=system_message))
-        
-        # RAG: Retrieve relevant documents for the follow-up question
-        domain = chat_context.get('domain', 'finance')
-        print(f"Using domain: {domain}")
-        
-        relevant_docs = kb.retrieve_relevant_documents(user_message, domain, top_k=2)
-        knowledge_context = kb.format_documents_for_prompt(relevant_docs)
-        print(f"Retrieved {len(relevant_docs)} relevant documents")
-        
-        # Add knowledge context to the conversation
-        enhanced_message = f"Context: {knowledge_context}\n\nUser Question: {user_message}"
-        
-        chat_context['messages'].append(ChatMessage(role="user", content=enhanced_message))
-        print(f"Total messages in context: {len(chat_context['messages'])}")
-        
+        chat_context['messages'].append(ChatMessage(role="user", content=user_message))
         response = client.chat.completions.create(
             messages=chat_context['messages'],
             model="jamba-large",
@@ -822,10 +762,7 @@ def chat():
             temperature=0.7
         )
         bot_response = response.choices[0].message.content
-        print(f"Bot response generated: {len(bot_response)} characters")
-        
         chat_context['messages'].append(ChatMessage(role="assistant", content=bot_response))
-        
         if chat_context.get('assessment_id'):
             assessments_collection.update_one(
                 {"_id": chat_context['assessment_id']},
@@ -839,12 +776,9 @@ def chat():
                     }
                 }
             )
-        
         return jsonify({"response": bot_response})
     except Exception as e:
         print(f"Chat error: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return jsonify({"response": f"I apologize, but I encountered an error: {str(e)}. Please try rephrasing your question."})
 
 @app.route('/history/<user_id>')
@@ -856,53 +790,6 @@ def get_user_history(user_id):
         ).sort("timestamp", -1))
         return jsonify({"history": assessments})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/admin/add_document', methods=['POST'])
-def add_document():
-    """Admin endpoint to add new documents to the knowledge base"""
-    try:
-        data = request.json
-        required_fields = ['domain', 'title', 'content', 'category', 'tags']
-        
-        for field in required_fields:
-            if field not in data:
-                return jsonify({"error": f"Missing required field: {field}"}), 400
-        
-        doc_id = kb.add_document(
-            domain=data['domain'],
-            title=data['title'],
-            content=data['content'],
-            category=data['category'],
-            tags=data['tags']
-        )
-        
-        return jsonify({"success": True, "document_id": str(doc_id)})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/admin/documents/<domain>')
-def get_documents(domain):
-    """Get all documents for a specific domain"""
-    try:
-        documents = list(kb.documents_collection.find({"domain": domain}, {"_id": 0}))
-        return jsonify({"documents": documents})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/test-chat', methods=['POST'])
-def test_chat():
-    """Test endpoint for chat functionality"""
-    try:
-        user_message = request.json.get('message', 'Hello')
-        print(f"Test chat request: {user_message}")
-        
-        # Create a simple test response
-        test_response = f"Test response: I received your message '{user_message}'. The chat system is working!"
-        
-        return jsonify({"response": test_response})
-    except Exception as e:
-        print(f"Test chat error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
